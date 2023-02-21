@@ -262,8 +262,6 @@ exception NotFoundException of msg : string with
   override this.Message = this.msg
 
 
-// CLEANUP we'd like to get rid of corsSetting and move it out of the DB and
-// entirely into code in some middleware
 let canvasMetadataFromHost (host : string) : Task<Option<Canvas.Meta>> =
   task {
     match Routing.canvasSourceFromHost host with
