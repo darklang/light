@@ -49,14 +49,8 @@ let fns : List<BuiltInFn> =
         (function
         | state, [ DObj value; DStr key; DDB dbname ] ->
           uply {
-            debuG "a" ()
             let db = state.program.dbs[dbname]
-            debuG "set" db
-            debuG "b" (List.length db.cols)
-            debuG "key" key
-            debuG "value" value
             let! _id = UserDB.set state true db key value
-            debuG "LibDB set" _id
             return DObj value
           }
         | _ -> incorrectArgs ())
