@@ -163,6 +163,7 @@ and set
       "ON CONFLICT ON CONSTRAINT user_data_key_uniq DO UPDATE SET data = EXCLUDED.data"
     else
       ""
+  debuG "userDB set" upsertQuery
 
   Sql.query
     $"INSERT INTO user_data
@@ -523,6 +524,7 @@ let addCol colid typeid (db : PT.DB.T) : PT.DB.T =
 let setColName (id : id) (name : string) (db : PT.DB.T) : PT.DB.T =
   let set (col : PT.DB.Col) =
     let name = if name = "" then None else Some name
+    debuG "name" name
     if col.nameID = id then { col with name = name } else col
 
   { db with cols = List.map set db.cols }

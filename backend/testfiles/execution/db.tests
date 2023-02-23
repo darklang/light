@@ -4,6 +4,7 @@
 // e.g. DB "x" has column "x" of type "Str"
 // ------------
 [db.X { "x" : "Str" }]
+[db.Z { "x" : "Character" }]
 [db.Lists { "strs" : "[Str]" , "ints" : "[Int]" }]
 [db.Insensitive { "cOlUmNnAmE" : "Str" }]
 [db.XY { "x" : "Str", "y": "Str" }]
@@ -74,13 +75,35 @@ DB.schema_v1 SortedX = { x = "Str"; sortBy = "Int" }
 [test.db.set does upsert] with DB X
 (let old = DB.set_v1 { x = "hello" } "hello" X in
  let newval = DB.set_v1 { x = "goodbye" } "hello" X in
+ let _ = Test.inspect old "inspect old string"
+ let _ = Test.inspect newval "inspect newval string"
  DB.getAllWithKeys_v1 X) = [["hello"; { x = "goodbye"}]]
+
+[test.db.set with char upsert] with DB X
+(let old = DB.set_v1 { x = 'a' } "a" X in
+ let newval = DB.set_v1 { x = 'b' } "a" X in
+ let _ = Test.inspect old "inspect old"
+ let _ = Test.inspect newval "inspect newval"
+ DB.getAllWithKeys_v1 X) = [["a"; { x = 'b' }]]
+
+[test.db.set char upsert] with DB Z
+(let old = DB.set_v1 { x = 'a' } "a" Z in
+ let newval = DB.set_v1 { x = 'b' } "a" Z in
+ let _ = Test.inspect old "inspect old"
+ let _ = Test.inspect newval "inspect newval"
+ DB.getAllWithKeys_v1 Z) = [["a"; { x = 'b' }]]
+
+
 
 // DB.add_v0
 [test.db.add_v0 works] with DB X
 (let _ = DB.add_v0 { x = "pancake" } X in
  DB.getAll_v3 X) = [{ x = "pancake" }]
 
+[test.db.add_v0 char works] with DB Z
+(let add = DB.add_v0 { x = 'p' } Z in
+ let _ = Test.inspect add  "inspect add"
+ DB.getAll_v3 Z) = [{ x = 'p' }]
 
 // ------------
 // Exact field queries
@@ -287,6 +310,10 @@ DB.schema_v1 SortedX = { x = "Str"; sortBy = "Int" }
 [test.db.queryOne_v2 works] with DB X
 (let one = DB.set_v1 { x = "hello" } "one" X in
  DB.queryOne_v2 { x = "hello" } X) = Just { x = "hello" }
+
+[test.db.queryOne_v2 char works] with DB Z
+(let one = DB.set_v1 { x = 'h' } "one" Z in
+ DB.queryOne_v2 { x = 'h' } Z) = Just { x = 'h' }
 
 [test.db.queryOne_v2 returns nothing if none] with DB X
 (let one = DB.set_v1 { x = "hello" } "one" X in

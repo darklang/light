@@ -49,8 +49,14 @@ let fns : List<BuiltInFn> =
         (function
         | state, [ DObj value; DStr key; DDB dbname ] ->
           uply {
+            debuG "a" ()
             let db = state.program.dbs[dbname]
+            debuG "set" db
+            debuG "b" (List.length db.cols)
+            debuG "key" key
+            debuG "value" value
             let! _id = UserDB.set state true db key value
+            debuG "LibDB set" _id
             return DObj value
           }
         | _ -> incorrectArgs ())
@@ -539,8 +545,9 @@ let fns : List<BuiltInFn> =
         | state, [ DDB dbname ] ->
           uply {
             let db = state.program.dbs[dbname]
+            debuG "LibDB get all db" db
             let! result = UserDB.getAll state db
-
+            debuG "LibDB get all result" result
             return result |> List.map (fun (k, v) -> DList [ DStr k; v ]) |> DList
           }
         | _ -> incorrectArgs ())

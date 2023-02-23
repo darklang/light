@@ -483,6 +483,7 @@ let partiallyEvaluate
       }
 
     let! result = postTraversal body
+    debuG "posttrb" result
     return (symtable.Value, result)
   }
 
@@ -507,6 +508,9 @@ let compileLambda
       // comment for more details.
       |> partiallyEvaluate state paramName symtable
       |> Ply.TplPrimitives.runPlyAsTask
+
+    debuG "body" body
+    debuG "lmdsq" lambdaToSql
 
     return lambdaToSql state.libraries.stdlib symtable paramName dbFields TBool body
   }
