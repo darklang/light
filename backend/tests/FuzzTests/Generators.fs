@@ -451,8 +451,6 @@ module ProgramTypes =
 
     let genBool = Arb.generate<bool> |> Gen.map (fun b -> PT.EBool(gid (), b))
 
-    let genBlank = gen { return PT.EBlank(gid ()) }
-
     let genNull = gen { return PT.ENull(gid ()) }
 
     let genChar = char |> Gen.map (fun c -> PT.ECharacter(gid (), c))
@@ -570,7 +568,7 @@ module ProgramTypes =
 
   // TODO: consider adding 'weight' such that certain patterns are generated more often than others
   let rec expr' s : Gen<PT.Expr> =
-    let finiteExprs = [ genInt; genBool; genBlank; genNull; genChar; genStr; genVar ]
+    let finiteExprs = [ genInt; genBool; genNull; genChar; genStr; genVar ]
 
     let recursiveExprs =
       [ genConstructor

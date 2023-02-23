@@ -142,7 +142,6 @@ module Expr =
     | CTPT.Expr.ECharacter (id, c) -> PT.ECharacter(id, c)
     | CTPT.Expr.EFloat (id, sign, whole, frac) -> PT.EFloat(id, sign, whole, frac)
     | CTPT.Expr.ENull (id) -> PT.ENull(id)
-    | CTPT.Expr.EBlank (id) -> PT.EBlank(id)
     | CTPT.Expr.ELet (id, name, expr, body) ->
       PT.ELet(id, name, fromCT expr, fromCT body)
     | CTPT.Expr.EIf (id, cond, ifExpr, thenExpr) ->
@@ -187,7 +186,6 @@ module Expr =
     | PT.ECharacter (id, c) -> CTPT.Expr.ECharacter(id, c)
     | PT.EFloat (id, sign, whole, frac) -> CTPT.Expr.EFloat(id, sign, whole, frac)
     | PT.ENull (id) -> CTPT.Expr.ENull(id)
-    | PT.EBlank (id) -> CTPT.Expr.EBlank(id)
     | PT.ELet (id, name, expr, body) ->
       CTPT.Expr.ELet(id, name, toCT expr, toCT body)
     | PT.EIf (id, cond, ifExpr, thenExpr) ->

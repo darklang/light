@@ -127,7 +127,6 @@ type Expr =
   | ECharacter of id * string
   | EFloat of id * Sign * string * string
   | ENull of id
-  | EBlank of id
   | ELet of id * string * Expr * Expr
   | EIf of id * Expr * Expr * Expr
   | EDeprecatedBinOp of id * FQFnName.T * Expr * Expr * SendToRail

@@ -176,7 +176,10 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
   | SynExpr.Ident ident when ident.idText = "Nothing" ->
     PT.EConstructor(id, "Nothing", [])
 
-  | SynExpr.Ident ident when ident.idText = "blank" -> PT.EBlank id
+  | SynExpr.Ident ident when ident.idText = "blank" ->
+    Exception.raiseInternal
+      "We no longer do anything fancy when encountering 'blank' identifiers"
+      [ "ast", ast ]
 
   | SynExpr.Ident name -> PT.EVariable(id, name.idText)
 

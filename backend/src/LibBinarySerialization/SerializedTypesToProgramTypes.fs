@@ -86,7 +86,6 @@ module MatchPattern =
 module Expr =
   let rec toPT (e : ST.Expr) : PT.Expr =
     match e with
-    | ST.EBlank id -> PT.EBlank id
     | ST.ECharacter (id, char) -> PT.ECharacter(id, char)
     | ST.EInteger (id, num) -> PT.EInteger(id, num)
     | ST.EString (id, str) -> PT.EString(id, str)

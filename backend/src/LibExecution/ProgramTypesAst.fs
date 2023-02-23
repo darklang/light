@@ -14,7 +14,6 @@ let traverse (f : Expr -> Expr) (expr : Expr) : Expr =
   | EString _
   | ECharacter _
   | ENull _
-  | EBlank _
   | EVariable _
   | EPipeTarget _
   | EFloat _ -> expr

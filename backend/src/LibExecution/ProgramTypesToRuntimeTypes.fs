@@ -57,7 +57,6 @@ module MatchPattern =
 module Expr =
   let rec toRT (e : PT.Expr) : RT.Expr =
     match e with
-    | PT.EBlank id -> RT.EBlank id
     | PT.ECharacter (id, char) -> RT.ECharacter(id, char)
     | PT.EInteger (id, num) -> RT.EInteger(id, num)
     | PT.EString (id, str) -> RT.EString(id, str)
@@ -144,7 +143,6 @@ module Expr =
               | PT.BinOpAnd -> RT.EAnd(id, prev, toRT expr2)
               | PT.BinOpOr -> RT.EOr(id, prev, toRT expr2)
             // If there's a hole, run the computation right through it as if it wasn't there
-            | PT.EBlank _ -> prev
             | other ->
               RT.EApply(pipeID, toRT other, [ prev ], RT.InPipe pipeID, RT.NoRail)
           convert next)
