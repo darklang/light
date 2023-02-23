@@ -78,7 +78,7 @@ DB.schema_v1 SortedX = { x = "Str"; sortBy = "Int" }
  let newval = DB.set_v1 { x = "goodbye" } "hello" X in
  DB.getAllWithKeys_v2 X) = { hello = { x = "goodbye"} }
 
-[test.db.set does upsert] with DB Z
+[test.db.set char upsert] with DB Z
 (let old = DB.set_v1 { x = 'a' } "a" Z in
  let newval = DB.set_v1 { x = 'b'} "a" Z in
  DB.getAllWithKeys_v2 Z) = { a = { x = 'b'} }
@@ -231,6 +231,10 @@ DB.schema_v1 SortedX = { x = "Str"; sortBy = "Int" }
 (let one = DB.set_v1 { x = "hello" } "one" X in
  let two = DB.set_v1 { x = "hello" } "two" X in
  DB.queryOneWithKey_v2 { x = "hello" } X) = Nothing
+
+[test.db.queryOneWithKey_v2 char works] with DB Z
+(let one = DB.set_v1 { x = 'a' } "one" Z in
+ DB.queryOneWithKey_v2 { x = 'b' } Z) = Nothing
 
 // DB.delete
 [test.db.delete_v1 does delete] with DB X
