@@ -75,7 +75,6 @@ module MatchPattern =
     | CTPT.MPString (id, str) -> PT.MPString(id, str)
     | CTPT.MPFloat (id, sign, whole, frac) -> PT.MPFloat(id, sign, whole, frac)
     | CTPT.MPUnit (id) -> PT.MPUnit(id)
-    | CTPT.MPBlank (id) -> PT.MPBlank(id)
     | CTPT.MPTuple (id, first, second, theRest) ->
       PT.MPTuple(id, fromCT first, fromCT second, List.map fromCT theRest)
 
@@ -90,21 +89,10 @@ module MatchPattern =
     | PT.MPString (id, str) -> CTPT.MPString(id, str)
     | PT.MPFloat (id, sign, whole, frac) -> CTPT.MPFloat(id, sign, whole, frac)
     | PT.MPUnit (id) -> CTPT.MPUnit(id)
-    | PT.MPBlank (id) -> CTPT.MPBlank(id)
     | PT.MPTuple (id, first, second, theRest) ->
       CTPT.MPTuple(id, toCT first, toCT second, List.map toCT theRest)
 
 
-module SendToRail =
-  let fromCT (str : CTPT.SendToRail) : PT.SendToRail =
-    match str with
-    | CTPT.SendToRail.Rail -> PT.Rail
-    | CTPT.SendToRail.NoRail -> PT.NoRail
-
-  let toCT (str : PT.SendToRail) : CTPT.SendToRail =
-    match str with
-    | PT.Rail -> CTPT.SendToRail.Rail
-    | PT.NoRail -> CTPT.SendToRail.NoRail
 
 module BinaryOperation =
   let fromCT (op : CTPT.BinaryOperation) : PT.BinaryOperation =
@@ -120,17 +108,14 @@ module BinaryOperation =
 module Infix =
   let fromCT (infix : CTPT.Infix) : PT.Infix =
     match infix with
-    | CTPT.InfixFnCall (name, ster) ->
-      PT.InfixFnCall(
-        FQFnName.InfixStdlibFnName.fromCT (name),
-        SendToRail.fromCT ster
-      )
+    | CTPT.InfixFnCall (name) ->
+      PT.InfixFnCall(FQFnName.InfixStdlibFnName.fromCT (name))
     | CTPT.BinOp (op) -> PT.BinOp(BinaryOperation.fromCT op)
 
   let toCT (infix : PT.Infix) : CTPT.Infix =
     match infix with
-    | PT.InfixFnCall (name, ster) ->
-      CTPT.InfixFnCall(FQFnName.InfixStdlibFnName.toCT (name), SendToRail.toCT ster)
+    | PT.InfixFnCall (name) ->
+      CTPT.InfixFnCall(FQFnName.InfixStdlibFnName.toCT (name))
     | PT.BinOp (op) -> CTPT.BinOp(BinaryOperation.toCT op)
 
 module Expr =
@@ -142,7 +127,6 @@ module Expr =
     | CTPT.Expr.ECharacter (id, c) -> PT.ECharacter(id, c)
     | CTPT.Expr.EFloat (id, sign, whole, frac) -> PT.EFloat(id, sign, whole, frac)
     | CTPT.Expr.EUnit (id) -> PT.EUnit(id)
-    | CTPT.Expr.EBlank (id) -> PT.EBlank(id)
     | CTPT.Expr.ELet (id, name, expr, body) ->
       PT.ELet(id, name, fromCT expr, fromCT body)
     | CTPT.Expr.EIf (id, cond, ifExpr, thenExpr) ->
@@ -153,13 +137,8 @@ module Expr =
     | CTPT.Expr.EFieldAccess (id, expr, fieldName) ->
       PT.EFieldAccess(id, fromCT expr, fieldName)
     | CTPT.Expr.EVariable (id, name) -> PT.EVariable(id, name)
-    | CTPT.Expr.EFnCall (id, fnName, args, str) ->
-      PT.EFnCall(
-        id,
-        FQFnName.fromCT fnName,
-        List.map fromCT args,
-        SendToRail.fromCT str
-      )
+    | CTPT.Expr.EFnCall (id, fnName, args) ->
+      PT.EFnCall(id, FQFnName.fromCT fnName, List.map fromCT args)
     | CTPT.Expr.EList (id, exprs) -> PT.EList(id, List.map fromCT exprs)
     | CTPT.Expr.ETuple (id, first, second, theRest) ->
       PT.ETuple(id, fromCT first, fromCT second, List.map fromCT theRest)
@@ -187,15 +166,14 @@ module Expr =
     | PT.ECharacter (id, c) -> CTPT.Expr.ECharacter(id, c)
     | PT.EFloat (id, sign, whole, frac) -> CTPT.Expr.EFloat(id, sign, whole, frac)
     | PT.EUnit (id) -> CTPT.Expr.EUnit(id)
-    | PT.EBlank (id) -> CTPT.Expr.EBlank(id)
     | PT.ELet (id, name, expr, body) ->
       CTPT.Expr.ELet(id, name, toCT expr, toCT body)
     | PT.EIf (id, cond, ifExpr, thenExpr) ->
       CTPT.Expr.EIf(id, toCT cond, toCT ifExpr, toCT thenExpr)
-    | PT.EInfix (id, PT.InfixFnCall (name, str), first, second) ->
+    | PT.EInfix (id, PT.InfixFnCall (name), first, second) ->
       CTPT.Expr.EInfix(
         id,
-        CTPT.InfixFnCall(FQFnName.InfixStdlibFnName.toCT name, SendToRail.toCT str),
+        CTPT.InfixFnCall(FQFnName.InfixStdlibFnName.toCT name),
         toCT first,
         toCT second
       )
@@ -205,13 +183,8 @@ module Expr =
     | PT.EFieldAccess (id, expr, fieldName) ->
       CTPT.Expr.EFieldAccess(id, toCT expr, fieldName)
     | PT.EVariable (id, name) -> CTPT.Expr.EVariable(id, name)
-    | PT.EFnCall (id, fnName, args, str) ->
-      CTPT.Expr.EFnCall(
-        id,
-        FQFnName.toCT fnName,
-        List.map toCT args,
-        SendToRail.toCT str
-      )
+    | PT.EFnCall (id, fnName, args) ->
+      CTPT.Expr.EFnCall(id, FQFnName.toCT fnName, List.map toCT args)
     | PT.EList (id, exprs) -> CTPT.Expr.EList(id, List.map toCT exprs)
     | PT.ETuple (id, first, second, theRest) ->
       CTPT.Expr.ETuple(id, toCT first, toCT second, List.map toCT theRest)
@@ -256,7 +229,6 @@ module DType =
     | CTPT.DType.TPassword -> PT.TPassword
     | CTPT.DType.TUuid -> PT.TUuid
     | CTPT.DType.TOption (t) -> PT.TOption(fromCT t)
-    | CTPT.DType.TErrorRail -> PT.TErrorRail
     | CTPT.DType.TUserType (name, v) -> PT.TUserType(name, v)
     | CTPT.DType.TBytes -> PT.TBytes
     | CTPT.DType.TResult (ok, err) -> PT.TResult(fromCT ok, fromCT err)
@@ -286,7 +258,6 @@ module DType =
     | PT.TPassword -> CTPT.DType.TPassword
     | PT.TUuid -> CTPT.DType.TUuid
     | PT.TOption (t) -> CTPT.DType.TOption(toCT t)
-    | PT.TErrorRail -> CTPT.DType.TErrorRail
     | PT.TUserType (name, v) -> CTPT.DType.TUserType(name, v)
     | PT.TBytes -> CTPT.DType.TBytes
     | PT.TResult (ok, err) -> CTPT.DType.TResult(toCT ok, toCT err)

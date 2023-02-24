@@ -138,7 +138,6 @@ type Expr =
   | ECharacter of id * string
   | EFloat of id * double
   | EUnit of id
-  | EBlank of id
 
   /// <summary>
   /// Composed of binding name, the bound expression,
@@ -166,7 +165,7 @@ type Expr =
   | EVariable of id * string
 
   /// This is a function call, the first expression is the value of the function.
-  | EApply of id * Expr * List<Expr> * IsInPipe * SendToRail
+  | EApply of id * Expr * List<Expr> * IsInPipe
 
   /// Reference a fully-qualified function name
   /// Since functions aren't real values in the symbol table, we look them up directly
@@ -181,14 +180,8 @@ type Expr =
   | EAnd of id * Expr * Expr
   | EOr of id * Expr * Expr
 
-  member this.isBlank : bool =
-    match this with
-    | EBlank _ -> true
-    | _ -> false
-
-and SendToRail =
-  | Rail
-  | NoRail
+  // TODO: remove
+  member this.isBlank : bool = false
 
 // EApply has slightly different semantics when it is in a pipe. When piping
 // into Incomplete values, we ignore the Incomplete and return the piped-in
@@ -207,7 +200,6 @@ and MatchPattern =
   | MPString of id * string
   | MPFloat of id * double
   | MPUnit of id
-  | MPBlank of id
   | MPTuple of id * MatchPattern * MatchPattern * List<MatchPattern>
 
 type DvalMap = Map<string, Dval>
@@ -276,21 +268,6 @@ and Dval =
   /// </remarks>
   | DIncomplete of DvalSource
 
-  /// <summary>
-  /// DErrorRail represents a value which has been sent over to the
-  /// errorrail. Because the computation is happening on the errorrail,
-  /// no other computation occurs.
-  /// </summary>
-  ///
-  /// <remarks>
-  /// In all cases, we can consider it equivalent to goto
-  /// end_of_function.
-  ///
-  /// - an if with an derrorrail in an subexpression is a derrorrail
-  /// -  a list containing a derrorrail is a derrorail
-  /// </remarks>
-  | DErrorRail of Dval
-
   // user types: awaiting a better type system
   | DHttpResponse of DHTTP
   | DDB of string
@@ -324,7 +301,6 @@ and DType =
   | TPassword
   | TUuid
   | TOption of DType
-  | TErrorRail
   | TUserType of string * int
   | TBytes
   | TResult of DType * DType
@@ -363,7 +339,6 @@ and DType =
     | TPassword -> "Password"
     | TUuid -> "UUID"
     | TOption _ -> "Option"
-    | TErrorRail -> "ErrorRail"
     | TResult _ -> "Result"
     | TUserType (name, _) -> name
     | TBytes -> "Bytes"
@@ -411,10 +386,9 @@ module Expr =
     | EVariable (id, _)
     | EFieldAccess (id, _, _)
     | ELambda (id, _, _)
-    | EBlank id
     | ELet (id, _, _, _)
     | EIf (id, _, _, _)
-    | EApply (id, _, _, _, _)
+    | EApply (id, _, _, _)
     | EList (id, _)
     | ETuple (id, _, _, _)
     | ERecord (id, _)
@@ -436,7 +410,6 @@ module MatchPattern =
     | MPUnit id
     | MPFloat (id, _)
     | MPVariable (id, _)
-    | MPBlank id
     | MPTuple (id, _, _, _)
     | MPConstructor (id, _, _) -> id
 
@@ -450,7 +423,6 @@ module Dval =
     match dv with
     | DError _ -> true
     | DIncomplete _ -> true
-    | DErrorRail _ -> true
     | _ -> false
 
   let isIncomplete (dv : Dval) : bool =
@@ -458,19 +430,17 @@ module Dval =
     | DIncomplete _ -> true
     | _ -> false
 
-  let isErrorRail (dv : Dval) : bool =
-    match dv with
-    | DErrorRail _ -> true
-    | _ -> false
+  // todo: remove
+  let isErrorRail (dv : Dval) : bool = false
 
   let isDError (dv : Dval) : bool =
     match dv with
     | DError _ -> true
     | _ -> false
 
+  // todo: remove
   let unwrapFromErrorRail (dv : Dval) : Dval =
     match dv with
-    | DErrorRail dv -> dv
     | other -> other
 
   let toPairs (dv : Dval) : Result<List<string * Dval>, string> =
@@ -498,7 +468,6 @@ module Dval =
     | DFnVal _ -> TFn([], any) // CLEANUP: can do better here
     | DError _ -> TError
     | DIncomplete _ -> TIncomplete
-    | DErrorRail _ -> TErrorRail
     | DHttpResponse (Response (_, _, dv)) -> THttpResponse(toType dv)
     | DHttpResponse (Redirect _) -> THttpResponse TUnit
     | DDB _ -> TDB any
@@ -565,7 +534,6 @@ module Dval =
     | DHttpResponse (Response (_, _, body)), THttpResponse t -> typeMatches t body
     // Dont match these fakevals, functions do not have these types
     | DError _, _
-    | DErrorRail _, _
     | DIncomplete _, _ -> false
     // exhaustiveness checking
     | DInt _, _
@@ -614,7 +582,7 @@ module Dval =
         // Skip empty rows
         | _, "", _ -> m
         | _, _, DIncomplete _ -> m
-        // Errors and Errorrail should propagate (but only if we're not already propagating an error)
+        // Errors should propagate (but only if we're not already propagating an error)
         | DObj _, _, v when isFake v -> v
         // Error if the key appears twice
         | DObj m, k, _v when Map.containsKey k m ->
@@ -638,9 +606,6 @@ module Dval =
         // Skip empty rows
         | _, "", _ -> m
         | _, _, DIncomplete _ -> m
-        // Errorrail should propagate (but only if we're not already propagating an error)
-        // NOTE: we do not propagate DError here! That's the ONLY difference with the version above
-        | DObj _, _, (DErrorRail _ as v) -> v
         // Error if the key appears twice
         | DObj m, k, _v when Map.containsKey k m ->
           DError(SourceNone, $"Duplicate key: {k}")

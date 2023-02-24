@@ -32,8 +32,7 @@ let parserTests =
             PT.EFnCall(
               id,
               PTParser.FQFnName.stdlibFqName "List" "map" 0,
-              [ (PT.EPipeTarget id); PT.EInteger(id, 5) ],
-              PT.NoRail
+              [ (PT.EPipeTarget id); PT.EInteger(id, 5) ]
             ),
             []
           )
@@ -43,10 +42,10 @@ let parserTests =
         "(5 + 3) == 8"
         (PT.EInfix(
           id,
-          PT.InfixFnCall({ module_ = None; function_ = "==" }, PT.NoRail),
+          PT.InfixFnCall({ module_ = None; function_ = "==" }),
           PT.EInfix(
             id,
-            (PT.InfixFnCall({ module_ = None; function_ = "+" }, PT.NoRail)),
+            (PT.InfixFnCall({ module_ = None; function_ = "+" })),
             PT.EInteger(id, 5),
             PT.EInteger(id, 3)
           ),
@@ -79,6 +78,6 @@ let parserTests =
       t
         "user-defined function with send-to-rail"
         "myFnCall_ster 5"
-        (PT.EFnCall(id, PT.FQFnName.User "myFnCall", [ PT.EInteger(id, 5) ], PT.Rail)) ]
+        (PT.EFnCall(id, PT.FQFnName.User "myFnCall", [ PT.EInteger(id, 5) ])) ]
 
 let tests = testList "Parser" [ parserTests ]

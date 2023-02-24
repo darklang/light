@@ -63,7 +63,10 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
   let rec convertPattern (pat : SynPat) : PT.MatchPattern =
     let id = gid ()
     match pat with
-    | SynPat.Named (name, _, _, _) when name.idText = "blank" -> PT.MPBlank id
+    | SynPat.Named (name, _, _, _) when name.idText = "blank" ->
+      Exception.raiseInternal
+        "We no longer do anything fancy when encountering 'blank' identifiers"
+        [ "ast", ast ]
     | SynPat.Named (name, _, _, _) -> PT.MPVariable(id, name.idText)
     | SynPat.Wild _ -> PT.MPVariable(gid (), "_") // wildcard, not blank
     | SynPat.Const (SynConst.Int32 n, _) -> PT.MPInteger(id, n)
@@ -103,8 +106,8 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
   // Add a pipetarget after creating it
   let cPlusPipeTarget (e : SynExpr) : PT.Expr =
     match c e with
-    | PT.EFnCall (id, name, args, ster) ->
-      PT.EFnCall(id, name, PT.EPipeTarget(gid ()) :: args, ster)
+    | PT.EFnCall (id, name, args) ->
+      PT.EFnCall(id, name, PT.EPipeTarget(gid ()) :: args)
     | PT.EInfix (id, op, Placeholder, arg2) ->
       PT.EInfix(id, op, PT.EPipeTarget(gid ()), arg2)
     | PT.EInfix (id, op, arg1, Placeholder) ->
@@ -151,7 +154,7 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
            "can't find operation"
            [ "name", ident.idText ]
     let fn : PT.FQFnName.InfixStdlibFnName = { module_ = None; function_ = op }
-    PT.EInfix(id, PT.InfixFnCall(fn, PT.NoRail), placeholder, placeholder)
+    PT.EInfix(id, PT.InfixFnCall(fn), placeholder, placeholder)
 
   | SynExpr.Ident ident when
     List.contains ident.idText [ "op_BooleanAnd"; "op_BooleanOr" ]
@@ -166,17 +169,20 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
 
   | SynExpr.Ident ident when ident.idText = "op_UnaryNegation" ->
     let name = PTParser.FQFnName.stdlibFqName "Int" "negate" 0
-    PT.EFnCall(id, name, [], PT.NoRail)
+    PT.EFnCall(id, name, [])
 
   | SynExpr.Ident ident when
     Set.contains ident.idText PTParser.FQFnName.oneWordFunctions
     ->
-    PT.EFnCall(id, PTParser.FQFnName.parse ident.idText, [], PT.NoRail)
+    PT.EFnCall(id, PTParser.FQFnName.parse ident.idText, [])
 
   | SynExpr.Ident ident when ident.idText = "Nothing" ->
     PT.EConstructor(id, "Nothing", [])
 
-  | SynExpr.Ident ident when ident.idText = "blank" -> PT.EBlank id
+  | SynExpr.Ident ident when ident.idText = "blank" ->
+    Exception.raiseInternal
+      "We no longer do anything fancy when encountering 'blank' identifiers"
+      [ "ast", ast ]
 
   | SynExpr.Ident name -> PT.EVariable(id, name.idText)
 
@@ -207,13 +213,13 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
     ->
     let module_ = modName.idText
 
-    let name, ster =
+    let name =
       match fnName.idText with
       // ster = send to error
       | Regex "(.+)_v(\d+)_ster" [ name; version ] ->
-        ($"{module_}::{name}_v{int version}", PT.Rail)
+        ($"{module_}::{name}_v{int version}")
       | Regex "(.+)_v(\d+)" [ name; version ] ->
-        ($"{module_}::{name}_v{int version}", PT.NoRail)
+        ($"{module_}::{name}_v{int version}")
       | Regex "(.*)" [ name ] when Map.containsKey name ops ->
         // Things like `Date::<`, written `Date.(<)`
         let name =
@@ -221,15 +227,15 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
           |> Exception.unwrapOptionInternal
                "can't find function name"
                [ "name", name ]
-        ($"{module_}::{name}", PT.NoRail)
-      | Regex "(.+)_ster" [ name ] -> ($"{module_}::{name}", PT.Rail)
-      | Regex "(.+)" [ name ] -> ($"{module_}::{name}", PT.NoRail)
+        ($"{module_}::{name}")
+      | Regex "(.+)_ster" [ name ] -> ($"{module_}::{name}")
+      | Regex "(.+)" [ name ] -> ($"{module_}::{name}")
       | _ ->
         Exception.raiseInternal
           $"Bad format in function name"
           [ "name", fnName.idText ]
 
-    PT.EFnCall(gid (), PTParser.FQFnName.parse name, [], ster)
+    PT.EFnCall(gid (), PTParser.FQFnName.parse name, [])
 
   // Preliminary support for package manager functions
   | SynExpr.LongIdent (_,
@@ -239,13 +245,9 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
     owner.idText = "Test" && package.idText = "Test" && modName.idText = "Test"
     ->
     let fnName = fnName.idText
-    let name, ster =
-      if String.endsWith "_ster" fnName then
-        String.dropRight 5 fnName, PT.Rail
-      else
-        fnName, PT.NoRail
+    let name = fnName
     let name = $"test/test/Test::{name}_v0"
-    PT.EFnCall(gid (), PTParser.FQFnName.parse name, [], ster)
+    PT.EFnCall(gid (), PTParser.FQFnName.parse name, [])
 
   | SynExpr.LongIdent (_, LongIdentWithDots ([ var; f1; f2; f3 ], _), _, _) ->
     let obj1 =
@@ -401,8 +403,7 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
   // Callers with multiple args are encoded as apps wrapping other apps.
   | SynExpr.App (_, _, funcExpr, arg, _) -> // function application (binops and fncalls)
     match c funcExpr with
-    | PT.EFnCall (id, name, args, ster) ->
-      PT.EFnCall(id, name, args @ [ c arg ], ster)
+    | PT.EFnCall (id, name, args) -> PT.EFnCall(id, name, args @ [ c arg ])
     | PT.EInfix (id, op, Placeholder, arg2) -> PT.EInfix(id, op, c arg, arg2)
     | PT.EInfix (id, op, arg1, Placeholder) -> PT.EInfix(id, op, arg1, c arg)
     // Fill in the feature flag fields (back to front)
@@ -421,9 +422,9 @@ let rec convertToExpr (ast : SynExpr) : PT.Expr =
     // Function calls sending to error rail
     | PT.EVariable (id, name) when String.endsWith "_ster" name ->
       let name = String.dropRight 5 name
-      PT.EFnCall(id, PTParser.FQFnName.parse name, [ c arg ], PT.Rail)
+      PT.EFnCall(id, PTParser.FQFnName.parse name, [ c arg ])
     | PT.EVariable (id, name) ->
-      PT.EFnCall(id, PTParser.FQFnName.parse name, [ c arg ], PT.NoRail)
+      PT.EFnCall(id, PTParser.FQFnName.parse name, [ c arg ])
     | e ->
       Exception.raiseInternal
         "Unsupported expression in app"

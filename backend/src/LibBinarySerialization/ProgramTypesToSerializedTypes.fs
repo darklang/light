@@ -29,12 +29,6 @@ module FQFnName =
     | PT.FQFnName.Package p -> ST.FQFnName.Package(PackageFnName.toST p)
 
 
-module SendToRail =
-  let toST (ster : PT.SendToRail) : ST.SendToRail =
-    match ster with
-    | PT.Rail -> ST.Rail
-    | PT.NoRail -> ST.NoRail
-
 module BinaryOperation =
   let toST (op : PT.BinaryOperation) : ST.BinaryOperation =
     match op with
@@ -53,7 +47,6 @@ module MatchPattern =
     | PT.MPString (id, s) -> ST.MPString(id, s)
     | PT.MPFloat (id, s, w, f) -> ST.MPFloat(id, s, w, f)
     | PT.MPUnit id -> ST.MPUnit id
-    | PT.MPBlank id -> ST.MPBlank id
     | PT.MPTuple (id, first, second, theRest) ->
       ST.MPTuple(id, toST first, toST second, List.map toST theRest)
 
@@ -62,7 +55,6 @@ module MatchPattern =
 module Expr =
   let rec toST (e : PT.Expr) : ST.Expr =
     match e with
-    | PT.EBlank id -> ST.EBlank id
     | PT.ECharacter (id, char) -> ST.ECharacter(id, char)
     | PT.EInteger (id, num) -> ST.EInteger(id, num)
     | PT.EString (id, str) -> ST.EString(id, str)
@@ -72,14 +64,14 @@ module Expr =
     | PT.EVariable (id, var) -> ST.EVariable(id, var)
     | PT.EFieldAccess (id, obj, fieldname) ->
       ST.EFieldAccess(id, toST obj, fieldname)
-    | PT.EFnCall (id, name, args, ster) ->
-      ST.EFnCall(id, FQFnName.toST name, List.map toST args, SendToRail.toST ster)
-    | PT.EInfix (id, PT.InfixFnCall (name, ster), arg1, arg2) ->
+    | PT.EFnCall (id, name, args) ->
+      ST.EFnCall(id, FQFnName.toST name, List.map toST args)
+    | PT.EInfix (id, PT.InfixFnCall (name), arg1, arg2) ->
       let isInfix = LibExecutionStdLib.StdLib.isInfixName
       assertFn2 "is a binop" isInfix (Option.unwrap "" name.module_) name.function_
       let name : ST.FQFnName.InfixStdlibFnName =
         { module_ = name.module_; function_ = name.function_ }
-      ST.EInfix(id, ST.InfixFnCall(name, SendToRail.toST ster), toST arg1, toST arg2)
+      ST.EInfix(id, ST.InfixFnCall(name), toST arg1, toST arg2)
     | PT.EInfix (id, PT.BinOp (op), arg1, arg2) ->
       ST.EInfix(id, ST.BinOp(BinaryOperation.toST (op)), toST arg1, toST arg2)
     | PT.ELambda (id, vars, body) -> ST.ELambda(id, vars, toST body)
@@ -126,7 +118,6 @@ module DType =
     | PT.TPassword -> ST.TPassword
     | PT.TUuid -> ST.TUuid
     | PT.TOption typ -> ST.TOption(toST typ)
-    | PT.TErrorRail -> ST.TErrorRail
     | PT.TUserType (name, version) -> ST.TUserType(name, version)
     | PT.TBytes -> ST.TBytes
     | PT.TResult (okType, errType) -> ST.TResult(toST okType, toST errType)

@@ -134,20 +134,20 @@ let testPipesToRuntimeTypes =
   }
 
 let testProgramTypesToRuntimeTypes =
-  let b = PT.EBlank(8UL)
-  let rb = RT.EBlank(8UL)
+  let u = PT.EUnit(8UL)
+  let ru = RT.EUnit(8UL)
   testMany
     "program types to runtime types"
     PT2RT.Expr.toRT
     [ PT.EFloat(7UL, Positive, "", "0"), RT.EFloat(7UL, 0.0)
       PT.EFloat(7UL, Positive, "0", ""), RT.EFloat(7UL, 0.0)
       PT.EFloat(7UL, Positive, "", ""), RT.EFloat(7UL, 0.0)
-      (PT.EMatch(9UL, b, [ PT.MPFloat(5UL, Positive, "", ""), b ]),
-       RT.EMatch(9UL, rb, [ RT.MPFloat(5UL, 0.0), rb ]))
-      (PT.EMatch(9UL, b, [ PT.MPFloat(5UL, Positive, "0", ""), b ]),
-       RT.EMatch(9UL, rb, [ RT.MPFloat(5UL, 0.0), rb ]))
-      (PT.EMatch(9UL, b, [ PT.MPFloat(5UL, Positive, "", "0"), b ]),
-       RT.EMatch(9UL, rb, [ RT.MPFloat(5UL, 0.0), rb ])) ]
+      (PT.EMatch(9UL, u, [ PT.MPFloat(5UL, Positive, "", ""), u ]),
+       RT.EMatch(9UL, ru, [ RT.MPFloat(5UL, 0.0), ru ]))
+      (PT.EMatch(9UL, u, [ PT.MPFloat(5UL, Positive, "0", ""), u ]),
+       RT.EMatch(9UL, ru, [ RT.MPFloat(5UL, 0.0), ru ]))
+      (PT.EMatch(9UL, u, [ PT.MPFloat(5UL, Positive, "", "0"), u ]),
+       RT.EMatch(9UL, ru, [ RT.MPFloat(5UL, 0.0), ru ])) ]
 
 // We didn't use a special infix type in serialized types, so check it converts OK
 let testInfixSerializedTypesToProgramTypes =
@@ -158,12 +158,11 @@ let testInfixSerializedTypesToProgramTypes =
         8UL,
         ST.FQFnName.Stdlib { module_ = ""; function_ = "+"; version = 0 },
         ST.EInteger(9UL, 6),
-        ST.EInteger(10UL, 6),
-        ST.NoRail
+        ST.EInteger(10UL, 6)
        ),
        PT.EInfix(
          8UL,
-         PT.InfixFnCall({ module_ = None; function_ = "+" }, PT.NoRail),
+         PT.InfixFnCall({ module_ = None; function_ = "+" }),
          PT.EInteger(9UL, 6),
          PT.EInteger(10UL, 6)
        ))
@@ -171,12 +170,11 @@ let testInfixSerializedTypesToProgramTypes =
         8UL,
         ST.FQFnName.Stdlib { module_ = "Date"; function_ = "<"; version = 0 },
         ST.EInteger(9UL, 6),
-        ST.EInteger(10UL, 6),
-        ST.NoRail
+        ST.EInteger(10UL, 6)
        ),
        PT.EInfix(
          8UL,
-         PT.InfixFnCall({ module_ = Some "Date"; function_ = "<" }, PT.NoRail),
+         PT.InfixFnCall({ module_ = Some "Date"; function_ = "<" }),
          PT.EInteger(9UL, 6),
          PT.EInteger(10UL, 6)
        )) ]
@@ -187,25 +185,25 @@ let testInfixProgramTypesToSerializedTypes =
     PT2ST.Expr.toST
     [ (PT.EInfix(
         8UL,
-        PT.InfixFnCall({ module_ = None; function_ = "+" }, PT.NoRail),
+        PT.InfixFnCall({ module_ = None; function_ = "+" }),
         PT.EInteger(9UL, 6),
         PT.EInteger(10UL, 6)
        ),
        ST.EInfix(
          8UL,
-         ST.InfixFnCall({ module_ = None; function_ = "+" }, ST.NoRail),
+         ST.InfixFnCall({ module_ = None; function_ = "+" }),
          ST.EInteger(9UL, 6),
          ST.EInteger(10UL, 6)
        ))
       (PT.EInfix(
         8UL,
-        PT.InfixFnCall({ module_ = Some "Date"; function_ = "<" }, PT.NoRail),
+        PT.InfixFnCall({ module_ = Some "Date"; function_ = "<" }),
         PT.EInteger(9UL, 6),
         PT.EInteger(10UL, 6)
        ),
        ST.EInfix(
          8UL,
-         ST.InfixFnCall({ module_ = Some("Date"); function_ = "<" }, ST.NoRail),
+         ST.InfixFnCall({ module_ = Some("Date"); function_ = "<" }),
          ST.EInteger(9UL, 6),
          ST.EInteger(10UL, 6)
        )) ]

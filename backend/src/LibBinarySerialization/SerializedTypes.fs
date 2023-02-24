@@ -101,13 +101,7 @@ type MatchPattern =
   | MPString of id * string
   | MPFloat of id * Sign * string * string
   | MPUnit of id
-  | MPBlank of id
   | MPTuple of id * MatchPattern * MatchPattern * List<MatchPattern>
-
-[<MessagePack.MessagePackObject>]
-type SendToRail =
-  | Rail
-  | NoRail
 
 [<MessagePack.MessagePackObject>]
 type BinaryOperation =
@@ -116,7 +110,7 @@ type BinaryOperation =
 
 [<MessagePack.MessagePackObject>]
 type Infix =
-  | InfixFnCall of FQFnName.InfixStdlibFnName * SendToRail
+  | InfixFnCall of FQFnName.InfixStdlibFnName
   | BinOp of BinaryOperation
 
 [<MessagePack.MessagePackObject>]
@@ -127,14 +121,13 @@ type Expr =
   | ECharacter of id * string
   | EFloat of id * Sign * string * string
   | EUnit of id
-  | EBlank of id
   | ELet of id * string * Expr * Expr
   | EIf of id * Expr * Expr * Expr
-  | EDeprecatedBinOp of id * FQFnName.T * Expr * Expr * SendToRail
+  | EDeprecatedBinOp of id * FQFnName.T * Expr * Expr
   | ELambda of id * List<id * string> * Expr
   | EFieldAccess of id * Expr * string
   | EVariable of id * string
-  | EFnCall of id * FQFnName.T * List<Expr> * SendToRail
+  | EFnCall of id * FQFnName.T * List<Expr>
   | EList of id * List<Expr>
   | ERecord of id * List<string * Expr>
   | EPipe of id * Expr * Expr * List<Expr>
@@ -163,7 +156,6 @@ type DType =
   | TPassword
   | TUuid
   | TOption of DType
-  | TErrorRail
   | TUserType of string * int
   | TBytes
   | TResult of DType * DType

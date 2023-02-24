@@ -40,20 +40,15 @@ type MatchPattern =
   | MPString of id * string
   | MPFloat of id * Sign * string * string
   | MPUnit of id
-  | MPBlank of id
   | MPTuple of id * MatchPattern * MatchPattern * List<MatchPattern>
 
-
-type SendToRail =
-  | Rail
-  | NoRail
 
 type BinaryOperation =
   | BinOpAnd
   | BinOpOr
 
 type Infix =
-  | InfixFnCall of FQFnName.InfixStdlibFnName * SendToRail
+  | InfixFnCall of FQFnName.InfixStdlibFnName
   | BinOp of BinaryOperation
 
 type Expr =
@@ -63,14 +58,13 @@ type Expr =
   | ECharacter of id * string
   | EFloat of id * Sign * string * string
   | EUnit of id
-  | EBlank of id
   | ELet of id * string * Expr * Expr
   | EIf of id * Expr * Expr * Expr
   | EInfix of id * Infix * Expr * Expr
   | ELambda of id * List<id * string> * Expr
   | EFieldAccess of id * Expr * string
   | EVariable of id * string
-  | EFnCall of id * FQFnName.T * List<Expr> * SendToRail
+  | EFnCall of id * FQFnName.T * List<Expr>
   | EList of id * List<Expr>
   | ETuple of id * Expr * Expr * List<Expr>
   | ERecord of id * List<string * Expr>
@@ -99,7 +93,6 @@ type DType =
   | TPassword
   | TUuid
   | TOption of DType
-  | TErrorRail
   | TUserType of string * int
   | TBytes
   | TResult of DType * DType

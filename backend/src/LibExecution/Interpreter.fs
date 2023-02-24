@@ -51,7 +51,6 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
 
   uply {
     match e with
-    | EBlank id -> return (incomplete id)
     | EString (_id, s) -> return DStr(String.normalize s)
     | EBool (_id, b) -> return DBool b
     | EInteger (_id, i) -> return DInt i
@@ -62,15 +61,17 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
 
     | ELet (_id, lhs, rhs, body) ->
       let! rhs = eval state st rhs
+
       match rhs with
-      // CLEANUP we should still preview the body
-      // Usually fakevals get propagated when they're evaluated. However, if we
-      // don't use the value, we still want to propagate the errorrail here, so
-      // return it instead of evaling the body
-      | DErrorRail _v -> return rhs
-      | _ ->
+      | Ok (dval) ->
         let st = if lhs <> "" then Map.add lhs rhs st else st
         return! eval state st body
+      | Error (e) -> return! Error e
+      | DIncomplete (s) ->
+        let st = if lhs <> "" then Map.add lhs rhs st else st
+        return! preview st state body
+
+
 
 
     | EList (_id, exprs) ->
@@ -83,11 +84,7 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
       // lists without breaking their code.
       let filtered = List.filter (not << Dval.isIncomplete) results
 
-      // CLEANUP: why do we only find errorRail, and not errors. Seems like
-      // a mistake
-      match List.tryFind Dval.isErrorRail filtered with
-      | Some er -> return er
-      | None -> return (DList filtered)
+      return (DList filtered)
 
 
     | ETuple (_id, first, second, theRest) ->
@@ -140,17 +137,13 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
 
       // CLEANUP - we should propogate blank field names too
       // (similar to tuples, the other product type)
-      let errorRail = List.tryFind (fun (_, dv) -> Dval.isErrorRail dv) evaluated
-
-      match errorRail with
-      | None -> return Dval.interpreterObj evaluated
-      | Some (_, er) -> return er
+      return Dval.interpreterObj evaluated
 
 
-    | EApply (id, fnVal, exprs, inPipe, ster) ->
+    | EApply (id, fnVal, exprs, inPipe) ->
       let! fnVal = eval state st fnVal
       let! args = Ply.List.mapSequentially (eval state st) exprs
-      let! result = applyFn state id fnVal (Seq.toList args) inPipe ster
+      let! result = applyFn state id fnVal (Seq.toList args) inPipe
 
       do
         // Pipes have been removed at this point, but the editor still needs to
@@ -179,7 +172,6 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
           else
             Map.tryFind field o |> Option.defaultValue DUnit
         | DIncomplete _ -> obj
-        | DErrorRail _ -> obj
         // CLEANUP: we should propagate DErrors too
         // | DError _ -> obj // differs from ocaml, but produces an Error either way
         | x ->
@@ -209,7 +201,6 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
       // signalling to use the new code, should use the old code:
       // - errors should be ignored: use old code
       // - incompletes should be ignored: use old code
-      // - errorrail should not be propaged: use old code
       // - values which are "truthy" in if statements are not truthy here
       //
       // Imagine you are writing the FF cond and you get a list or object,
@@ -290,8 +281,6 @@ let rec eval' (state : ExecutionState) (st : Symtable) (e : Expr) : DvalTask =
         | MPString (id, s) -> (dv = DStr s), [], [ (id, DStr s) ]
         | MPFloat (id, f) -> (dv = DFloat f), [], [ (id, DFloat f) ]
         | MPUnit (id) -> (dv = DUnit), [], [ (id, DUnit) ]
-
-        | MPBlank (id) -> false, [], [ (id, incomplete id) ]
 
         | MPVariable (id, varName) ->
           not (Dval.isFake dv), [ (varName, dv) ], [ (id, dv) ]
@@ -467,13 +456,12 @@ and applyFn
   (fn : Dval)
   (args : List<Dval>)
   (isInPipe : IsInPipe)
-  (ster : SendToRail)
   : DvalTask =
   let sourceID = SourceID(state.tlid, id)
 
   // Unwrap
   match fn, isInPipe with
-  | DFnVal fnVal, _ -> applyFnVal state id fnVal args isInPipe ster
+  | DFnVal fnVal, _ -> applyFnVal state id fnVal args isInPipe
   // Incompletes are allowed in pipes
   | DIncomplete _, InPipe _ -> Ply(Option.defaultValue fn (List.tryHead args))
   | _other, InPipe _ ->
@@ -493,12 +481,12 @@ and applyFnVal
   (fnVal : FnValImpl)
   (argList : List<Dval>)
   (isInPipe : IsInPipe)
-  (ster : SendToRail)
   : DvalTask =
   match fnVal with
   | Lambda l -> executeLambda state l argList
   // CLEANUP: fetch the name when we load it, then we won't need to find it again
-  | FnName name -> callFn state callerID name argList isInPipe ster
+  | FnName name -> callFn state callerID name argList isInPipe
+
 
 and executeLambda
   (state : ExecutionState)
@@ -542,7 +530,6 @@ and callFn
   (desc : FQFnName.T)
   (argvals : Dval list)
   (isInPipe : IsInPipe)
-  (sendToRail : SendToRail)
   : DvalTask =
   uply {
     let sourceID id = SourceID(state.tlid, id) in
@@ -557,73 +544,61 @@ and callFn
       | FQFnName.Package _pkg ->
         state.libraries.packageFns.TryFind desc |> Option.map packageFnToFn
 
-    match List.tryFind Dval.isErrorRail argvals with
-    | Some er -> return er
-    | None ->
-      let! result =
-        uply {
-          match fn with
-          // Functions which aren't implemented in the client may have results
-          // available, otherwise they just return incomplete.
-          | None ->
-            let fnRecord = (state.tlid, desc, callerID) in
-            let fnResult = state.tracing.loadFnResult fnRecord argvals in
-            // In the case of DB::query (and friends), we want to backfill
-            // the lambda's livevalues, as the lambda was never actually
-            // executed. We hack this is here as we have no idea what this
-            // abstraction might look like in the future.
-            if state.tracing.realOrPreview = Preview && FQFnName.isDBQueryFn desc then
-              match argvals with
-              | [ DDB dbname; DFnVal (Lambda b) ] ->
-                let sample =
-                  match fnResult with
-                  | Some (DList (sample :: _), _) -> sample
-                  | _ ->
-                    Map.find dbname state.program.dbs
-                    |> (fun (db : DB.T) -> db.cols)
-                    |> List.map (fun (field, _) -> (field, DIncomplete SourceNone))
-                    |> Map.ofList
-                    |> DObj
+    let! result =
+      uply {
+        match fn with
+        // Functions which aren't implemented in the client may have results
+        // available, otherwise they just return incomplete.
+        | None ->
+          let fnRecord = (state.tlid, desc, callerID) in
+          let fnResult = state.tracing.loadFnResult fnRecord argvals in
+          // In the case of DB::query (and friends), we want to backfill
+          // the lambda's livevalues, as the lambda was never actually
+          // executed. We hack this is here as we have no idea what this
+          // abstraction might look like in the future.
+          if state.tracing.realOrPreview = Preview && FQFnName.isDBQueryFn desc then
+            match argvals with
+            | [ DDB dbname; DFnVal (Lambda b) ] ->
+              let sample =
+                match fnResult with
+                | Some (DList (sample :: _), _) -> sample
+                | _ ->
+                  Map.find dbname state.program.dbs
+                  |> (fun (db : DB.T) -> db.cols)
+                  |> List.map (fun (field, _) -> (field, DIncomplete SourceNone))
+                  |> Map.ofList
+                  |> DObj
 
-                let! (_ : Dval) = executeLambda state b [ sample ]
-                ()
-              | _ -> ()
+              let! (_ : Dval) = executeLambda state b [ sample ]
+              ()
+            | _ -> ()
 
-            match fnResult with
-            | Some (result, _ts) -> return result
-            | _ -> return DIncomplete(sourceID callerID)
+          match fnResult with
+          | Some (result, _ts) -> return result
+          | _ -> return DIncomplete(sourceID callerID)
 
-          | Some fn ->
-            // equalize length
-            let expectedLength = List.length fn.parameters in
-            let actualLength = List.length argvals in
+        | Some fn ->
+          // equalize length
+          let expectedLength = List.length fn.parameters in
+          let actualLength = List.length argvals in
 
-            if expectedLength = actualLength then
-              let args =
-                fn.parameters
-                |> List.map2 (fun dv p -> (p.name, dv)) argvals
-                |> Map.ofList
+          if expectedLength = actualLength then
+            let args =
+              fn.parameters
+              |> List.map2 (fun dv p -> (p.name, dv)) argvals
+              |> Map.ofList
 
-              return! execFn state desc callerID fn args isInPipe
-            else
-              return
-                DError(
-                  sourceID callerID,
-                  $"{FQFnName.toString desc} has {expectedLength} parameters, but here was called"
-                  + $" with {actualLength} arguments."
-                )
-        }
-      if sendToRail = Rail then
-        match Dval.unwrapFromErrorRail result with
-        | DOption (Some v) -> return v
-        | DResult (Ok v) -> return v
-        | DIncomplete _ as i -> return i
-        | DError _ as e -> return e
-        // There should only be DOptions and DResults here, but hypothetically we got
-        // something else, they would go on the error rail too.
-        | other -> return DErrorRail other
-      else
-        return result
+            return! execFn state desc callerID fn args isInPipe
+          else
+            return
+              DError(
+                sourceID callerID,
+                $"{FQFnName.toString desc} has {expectedLength} parameters, but here was called"
+                + $" with {actualLength} arguments."
+              )
+      }
+
+    return result
   }
 
 
@@ -749,7 +724,7 @@ and execFn
               match (state.tracing.realOrPreview,
                      state.tracing.loadFnResult fnRecord arglist)
                 with
-              | Preview, Some (result, _ts) -> Ply(Dval.unwrapFromErrorRail result)
+              | Preview, Some (result, _ts) -> Ply(result)
               | Preview, None when fn.previewable <> Pure ->
                 Ply(DIncomplete sourceID)
               | _ ->
@@ -769,16 +744,12 @@ and execFn
 
                   state.tracing.storeFnResult fnRecord arglist result
 
-                  return
-                    result |> Dval.unwrapFromErrorRail |> typeErrorOrValue Map.empty
+                  return result |> typeErrorOrValue Map.empty
                 }
             // For now, always store these results
             state.tracing.storeFnResult fnRecord arglist result
 
-            return
-              result
-              |> Dval.unwrapFromErrorRail
-              |> typeErrorOrValue state.program.userTypes
+            return result |> typeErrorOrValue state.program.userTypes
 
           | Error errs ->
             return
@@ -795,7 +766,7 @@ and execFn
             match (state.tracing.realOrPreview,
                    state.tracing.loadFnResult fnRecord arglist)
               with
-            | Preview, Some (result, _ts) -> return Dval.unwrapFromErrorRail result
+            | Preview, Some (result, _ts) -> return result
             | _ ->
               // It's okay to execute user functions in both Preview and Real contexts,
               // But in Preview we might not have all the data we need
@@ -805,10 +776,7 @@ and execFn
               let! result = eval state argsWithGlobals body
               state.tracing.storeFnResult fnRecord arglist result
 
-              return
-                result
-                |> Dval.unwrapFromErrorRail
-                |> typeErrorOrValue state.program.userTypes
+              return result |> typeErrorOrValue state.program.userTypes
           | Error errs ->
             return
               DError(

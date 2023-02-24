@@ -45,7 +45,6 @@ type DType =
   | TPassword
   | TUuid
   | TOption of DType
-  | TErrorRail
   | TUserType of string * int
   | TBytes
   | TResult of DType * DType
@@ -62,7 +61,6 @@ type MatchPattern =
   | MPString of id * string
   | MPFloat of id * double
   | MPUnit of id
-  | MPBlank of id
   | MPTuple of id * MatchPattern * MatchPattern * List<MatchPattern>
 
 module Expr =
@@ -73,13 +71,12 @@ module Expr =
     | ECharacter of id * string
     | EFloat of id * double
     | EUnit of id
-    | EBlank of id
     | ELet of id * string * T * T
     | EIf of id * T * T * T
     | ELambda of id * List<id * string> * T
     | EFieldAccess of id * T * string
     | EVariable of id * string
-    | EApply of id * T * List<T> * IsInPipe * SendToRail
+    | EApply of id * T * List<T> * IsInPipe
     | EFQFnValue of id * FQFnName.T
     | EList of id * List<T>
     | ETuple of id * T * T * List<T>
@@ -89,10 +86,6 @@ module Expr =
     | EFeatureFlag of id * T * T * T
     | EAnd of id * T * T
     | EOr of id * T * T
-
-  and SendToRail =
-    | Rail
-    | NoRail
 
   and IsInPipe =
     | InPipe of id
@@ -132,7 +125,6 @@ module Dval =
     | DObj of Map<string, T>
     | DError of DvalSource * string
     | DIncomplete of DvalSource
-    | DErrorRail of T
     | DHttpResponse of DHTTP
     | DDB of string
     | DDate of NodaTime.LocalDateTime

@@ -45,11 +45,6 @@ module FQFnName =
     | ST.FQFnName.Package p -> PT.FQFnName.Package(PackageFnName.toPT p)
 
 
-module SendToRail =
-  let toPT (ster : ST.SendToRail) : PT.SendToRail =
-    match ster with
-    | ST.Rail -> PT.Rail
-    | ST.NoRail -> PT.NoRail
 
 module BinaryOperation =
   let toPT (binop : ST.BinaryOperation) : PT.BinaryOperation =
@@ -61,8 +56,7 @@ module BinaryOperation =
 module Infix =
   let toPT (infix : ST.Infix) : PT.Infix =
     match infix with
-    | ST.InfixFnCall (fn, ster) ->
-      PT.InfixFnCall(FQFnName.InfixStdlibFnName.toPT fn, SendToRail.toPT ster)
+    | ST.InfixFnCall (fn) -> PT.InfixFnCall(FQFnName.InfixStdlibFnName.toPT fn)
     | ST.BinOp binop -> PT.BinOp(BinaryOperation.toPT binop)
 
 module MatchPattern =
@@ -77,7 +71,6 @@ module MatchPattern =
     | ST.MPString (id, s) -> PT.MPString(id, s)
     | ST.MPFloat (id, s, w, f) -> PT.MPFloat(id, s, w, f)
     | ST.MPUnit id -> PT.MPUnit id
-    | ST.MPBlank id -> PT.MPBlank id
     | ST.MPTuple (id, first, second, theRest) ->
       PT.MPTuple(id, toPT first, toPT second, List.map toPT theRest)
 
@@ -86,7 +79,6 @@ module MatchPattern =
 module Expr =
   let rec toPT (e : ST.Expr) : PT.Expr =
     match e with
-    | ST.EBlank id -> PT.EBlank id
     | ST.ECharacter (id, char) -> PT.ECharacter(id, char)
     | ST.EInteger (id, num) -> PT.EInteger(id, num)
     | ST.EString (id, str) -> PT.EString(id, str)
@@ -96,9 +88,9 @@ module Expr =
     | ST.EVariable (id, var) -> PT.EVariable(id, var)
     | ST.EFieldAccess (id, obj, fieldname) ->
       PT.EFieldAccess(id, toPT obj, fieldname)
-    | ST.EFnCall (id, name, args, ster) ->
-      PT.EFnCall(id, FQFnName.toPT name, List.map toPT args, SendToRail.toPT ster)
-    | ST.EDeprecatedBinOp (id, ST.FQFnName.Stdlib fn, arg1, arg2, ster) ->
+    | ST.EFnCall (id, name, args) ->
+      PT.EFnCall(id, FQFnName.toPT name, List.map toPT args)
+    | ST.EDeprecatedBinOp (id, ST.FQFnName.Stdlib fn, arg1, arg2) ->
       // CLEANUP remove Date by making Date not allowed anymore
       assertIn
         "serialized binop should have blank/Date module"
@@ -110,17 +102,14 @@ module Expr =
       let module_ = if fn.module_ = "" then None else Some fn.module_
       PT.EInfix(
         id,
-        PT.InfixFnCall(
-          { module_ = module_; function_ = fn.function_ },
-          SendToRail.toPT ster
-        ),
+        PT.InfixFnCall({ module_ = module_; function_ = fn.function_ }),
         toPT arg1,
         toPT arg2
       )
     // CLEANUP remove from format
-    | ST.EDeprecatedBinOp (_, ST.FQFnName.User name, _, _, _) ->
+    | ST.EDeprecatedBinOp (_, ST.FQFnName.User name, _, _) ->
       Exception.raiseInternal "userfn serialized as a binop" [ "name", name ]
-    | ST.EDeprecatedBinOp (_, ST.FQFnName.Package name, _, _, _) ->
+    | ST.EDeprecatedBinOp (_, ST.FQFnName.Package name, _, _) ->
       Exception.raiseInternal "package serialized as a binop" [ "name", name ]
     | ST.ELambda (id, vars, body) -> PT.ELambda(id, vars, toPT body)
     | ST.ELet (id, lhs, rhs, body) -> PT.ELet(id, lhs, toPT rhs, toPT body)
@@ -169,7 +158,6 @@ module DType =
     | ST.TPassword -> PT.TPassword
     | ST.TUuid -> PT.TUuid
     | ST.TOption typ -> PT.TOption(toPT typ)
-    | ST.TErrorRail -> PT.TErrorRail
     | ST.TUserType (name, version) -> PT.TUserType(name, version)
     | ST.TBytes -> PT.TBytes
     | ST.TResult (okType, errType) -> PT.TResult(toPT okType, toPT errType)
